@@ -22,15 +22,40 @@ class ClientListener(Thread):
         print(f"Closing a connection from {self.address}")
         self.sock.close()
 
+    def _read_filename(self):
+        filename_data = bytes()
+        residual_data = bytes()
+
+        while True:
+            data = self.sock.recv(BUFF_SIZE)
+            if not data:
+                break
+            index = data.find(b'\0')
+            if index != -1:
+                filename_data += data[:index]
+                if len(data) > index + 1:
+                    residual_data += data[index + 1:]
+                break
+            else:
+                filename_data += data
+
+        filename = filename_data.decode()
+        return filename, residual_data
+
+    def _read_file(self, filename, initial_data):
+        with open('copy_' + filename, 'wb') as f:
+            f.write(initial_data)
+            while True:
+                data = self.sock.recv(BUFF_SIZE)
+                if not data:
+                    break
+                f.write(data)
+
     def run(self):
-        data = self.sock.recv(BUFF_SIZE)
-
-        if data:
-            message = data.decode()
-            print(f"Message '{message}' from {self.address}")
-        else:
-            print(f"Didn't receive any data from {self.address}")
-
+        filename, data = self._read_filename()
+        print(f"Read file name {filename}")
+        self._read_file(filename, data)
+        print("Saved a file")
         self._close()
 
 
